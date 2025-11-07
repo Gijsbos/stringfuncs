@@ -1,0 +1,24 @@
+{
+    "name": "gijsbos/stringfuncs",
+    "description": "PHP String Functions",
+    "keywords": [
+        "stringfuncs"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Gijs and contributors",
+            "homepage": "https://github.com/gijsbos/yamlspeed/graphs/contributors"
+        }
+    ],
+    "require-dev": {
+        "phpunit/phpunit": "^5.7 || ^9.0"
+    },
+    "autoload": {
+        "files": ["src/library.php"],
+        "psr-4": {
+            "StringFuncs\\": "src/"
+        }
+    }
+}
