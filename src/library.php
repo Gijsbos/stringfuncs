@@ -432,6 +432,47 @@ if(!function_exists('str_must_not_end_with'))
 }
 
 /**
+ * array_get_key_value
+ */
+if(!function_exists('array_get_key_value'))
+{
+    function array_get_key_value(string $path, array $array, string $delimiter = ".", bool|Exception $throws = false)
+    {
+        // Explode path using delimiter
+        $remaining = explode($delimiter, $path);
+
+        // Get first key
+        $key = array_shift($remaining);
+
+        // Key not found
+        if(!array_key_exists($key, $array))
+        {
+            if($throws !== false)
+                throw is_object($throws) ? $throws : new Exception("Key '$key' not found"); 
+
+            return null;
+        }
+
+        // Return key
+        if(count($remaining) === 0)
+            return $array[$key];
+
+        // Continue search
+        else if(is_array($array[$key]))
+            return array_get_key_value(implode($delimiter, $remaining), $array[$key], $delimiter, $throws);
+
+        // Not found
+        else
+        {
+            if($throws !== false)
+                throw is_object($throws) ? $throws : new Exception("Key '$key' not found"); 
+
+            return null;
+        }
+    }
+}
+
+/**
  * cli_color
  *  Adds color to cli text
  */
