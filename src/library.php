@@ -282,7 +282,7 @@ if(!function_exists("replace_placeholder"))
  * placeholder_replace
  *  Note: escape brackets before replacing placeholders
  */
-if(!function_exists("replace_placeholder"))
+if(!function_exists("placeholder_replace"))
 {
     function placeholder_replace(string $open, string $close, string &$content, int $startIndex = 0, bool $multiByteSafe = false)
     {
