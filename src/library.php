@@ -262,7 +262,7 @@ if(!function_exists("replace_placeholder"))
 /**
  * placeholder_restore
  */
-if(!function_exists("replace_placeholder"))
+if(!function_exists("placeholder_restore"))
 {
     function placeholder_restore(string $content, array $placeholders) : string
     {
