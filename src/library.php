@@ -432,6 +432,17 @@ if(!function_exists('str_must_not_end_with'))
 }
 
 /**
+ * str_must_start_end_with
+ */
+if(!function_exists('str_must_start_end_with'))
+{
+    function str_must_start_end_with(string $input, string $fix)
+    {
+        return str_must_start_with(str_must_end_with($input, $fix), $fix);
+    }
+}
+
+/**
  * array_get_key_value
  */
 if(!function_exists('array_get_key_value'))
