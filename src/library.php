@@ -260,6 +260,86 @@ if(!function_exists("replace_placeholder"))
 }
 
 /**
+ * placeholder_restore
+ */
+if(!function_exists("replace_placeholder"))
+{
+    function placeholder_restore(string $content, array $placeholders) : string
+    {
+        // Restore placeholder
+        preg_match_all("/\{([0-9]+)\}/", $content, $matches);
+
+        // Replace placeholders
+        foreach($matches[1] as $placeholderIndex)
+            $content = str_replace("{{$placeholderIndex}}", $placeholders[(int) $placeholderIndex], $content);
+
+        // Return content
+        return $content;
+    }
+}
+
+/**
+ * placeholder_replace
+ *  Note: escape brackets before replacing placeholders
+ */
+if(!function_exists("replace_placeholder"))
+{
+    function placeholder_replace(string $open, string $close, string &$content, int $startIndex = 0, bool $multiByteSafe = false)
+    {
+        // Create temp content
+        $tempContent = $content;
+
+        // Explode parentheses, replace inner contents with placeholders
+        $explode = \explode_enclosed($open, $close, $tempContent, 0, true, $multiByteSafe);
+
+        // Set functions
+        $substr = $multiByteSafe ? 'mb_substr' : 'substr';
+        $strlen = $multiByteSafe ? 'mb_strlen' : 'strlen';
+
+        // Correction
+        $resultArray = array();
+        $correction = 0;
+
+        // Iterate over results
+        foreach($explode as $pos => $result)
+        {
+            // Increase pos
+            $pos += 1;
+            
+            // Determine position, correction accounts for pos shifts due to placeholde replacements
+            $pos = $pos + $correction;
+
+            // Get leading fragment
+            $start = $substr($tempContent, 0, $pos);
+
+            // Get trailing fragment
+            $end = $substr($tempContent, $pos + $strlen($result));
+
+            // Create placeholder
+            $placeholder = "{{$startIndex}}";
+
+            // Calculate difference
+            $correction += $strlen($placeholder) - $strlen($result);
+
+            // Set new content
+            $tempContent = $start.$placeholder.$end;
+
+            // Add result
+            $resultArray[$startIndex] = $result;
+
+            // Increment
+            $startIndex++;
+        }
+
+        // Set content to temp content
+        $content = $tempContent;
+
+        // Return 
+        return $resultArray;
+    }
+}
+
+/**
  * typecast
  */
 if(!function_exists("typecast"))
@@ -443,43 +523,24 @@ if(!function_exists('str_must_start_end_with'))
 }
 
 /**
- * array_get_key_value
+ * str_equals
  */
-if(!function_exists('array_get_key_value'))
+if(!function_exists('str_equals'))
 {
-    function array_get_key_value(string $path, array $array, string $delimiter = ".", bool|Exception $throws = false)
+    function str_equals($str1, $str2) : bool
     {
-        // Explode path using delimiter
-        $remaining = explode($delimiter, $path);
+        return strcmp($str1, $str2) == 0;
+    }
+}
 
-        // Get first key
-        $key = array_shift($remaining);
-
-        // Key not found
-        if(!array_key_exists($key, $array))
-        {
-            if($throws !== false)
-                throw is_object($throws) ? $throws : new Exception("Key '$key' not found"); 
-
-            return null;
-        }
-
-        // Return key
-        if(count($remaining) === 0)
-            return $array[$key];
-
-        // Continue search
-        else if(is_array($array[$key]))
-            return array_get_key_value(implode($delimiter, $remaining), $array[$key], $delimiter, $throws);
-
-        // Not found
-        else
-        {
-            if($throws !== false)
-                throw is_object($throws) ? $throws : new Exception("Key '$key' not found"); 
-
-            return null;
-        }
+/**
+ * str_starts_ends_with
+ */
+if(!function_exists('str_starts_ends_with'))
+{
+    function str_starts_ends_with(string $haystack, string $needle)
+    {
+        return str_starts_with($haystack, $needle) && str_ends_with($haystack, $needle);
     }
 }
 
