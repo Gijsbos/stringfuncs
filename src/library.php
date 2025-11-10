@@ -538,9 +538,9 @@ if(!function_exists('str_equals'))
  */
 if(!function_exists('str_starts_ends_with'))
 {
-    function str_starts_ends_with(string $haystack, string $needle)
+    function str_starts_ends_with(string $haystack, string $needle, ?string $ends = null)
     {
-        return str_starts_with($haystack, $needle) && str_ends_with($haystack, $needle);
+        return str_starts_with($haystack, $needle) && str_ends_with($haystack, $ends ?? $needle);
     }
 }
 
