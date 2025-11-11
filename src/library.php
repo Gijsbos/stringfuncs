@@ -566,6 +566,67 @@ if(!function_exists('url_strip_slashes'))
 }
 
 /**
+ * url_add_slashes
+ * 
+ * @param string url url to strip slashes off
+ * @param bool front adds slash to front of url
+ * @param bool back adds slash to back of url
+ */
+if(!function_exists('url_add_slashes'))
+{
+    function url_add_slashes(string $url, bool $front = false, bool $back = false) : string
+    {
+        if($front)
+            $url = $url[0] !== "/" ? "/$url" : $url;
+
+        if($back)
+            $url = $url[strlen($url) - 1] !== "/" ? "$url/" : $url;
+        
+        return $url;
+    }
+}
+
+/**
+ * url_format_slashes
+ * 
+ * @param string url
+ * @param bool front false: removes the front slash, true: adds a front slash
+ * @param bool back false: removes the back slash, true: adds a back slash
+ */
+if(!function_exists('url_format_slashes'))
+{
+    function url_format_slashes(string $url, bool $front = false, bool $back = false) : string
+    {
+        $hasFrontSlash = strlen($url) > 0 && $url[0] == "/";
+        $hasBackSlash = strlen($url) > 0 && $url[strlen($url) - 1] == "/";
+
+        if($hasFrontSlash)
+        {
+            if(!$front)
+                $url = substr($url, 1);
+        }
+        else
+        {
+            if($front)
+                $url = "/".$url;
+        }
+
+        if($hasBackSlash)
+        {
+            if(!$back)
+                $url = substr($url, 0, strlen($url)-1);
+        }
+        else
+        {
+            if($back)
+                $url = $url."/";
+        }
+
+        return $url;
+    }
+}
+
+/**
  * cli_color
  *  Adds color to cli text
  */
