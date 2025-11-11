@@ -545,6 +545,27 @@ if(!function_exists('str_starts_ends_with'))
 }
 
 /**
+ * url_strip_slashes
+ * 
+ * @param string url url to strip slashes off
+ * @param bool front strips slash from front of url
+ * @param bool back strips slash from back of url
+ */
+if(!function_exists('url_strip_slashes'))
+{
+    function url_strip_slashes(string $url, bool $front = false, bool $back = false) : string
+    {
+        if($front)
+            $url = $url[0] == "/" ? substr($url, 1) : $url;
+
+        if($back)
+            $url = strlen($url) > 0 && $url[strlen($url) - 1] == "/" ? substr($url, 0, strlen($url) - 1) : $url;
+        
+        return $url;
+    }
+}
+
+/**
  * cli_color
  *  Adds color to cli text
  */
