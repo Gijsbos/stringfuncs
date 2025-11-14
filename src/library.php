@@ -516,9 +516,20 @@ if(!function_exists('str_must_not_end_with'))
  */
 if(!function_exists('str_must_start_end_with'))
 {
-    function str_must_start_end_with(string $input, string $fix)
+    function str_must_start_end_with(string $input, string $start, ?string $end = null)
     {
-        return str_must_start_with(str_must_end_with($input, $fix), $fix);
+        return str_must_start_with(str_must_end_with($input, $end ?? $start), $start);
+    }
+}
+
+/**
+ * str_must_not_start_end_with
+ */
+if(!function_exists('str_must_not_start_end_with'))
+{
+    function str_must_not_start_end_with(string $input, string $start, ?string $end = null)
+    {
+        return str_must_not_start_with(str_must_not_end_with($input, $end ?? $start), $start);
     }
 }
 
