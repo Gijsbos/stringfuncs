@@ -638,6 +638,53 @@ if(!function_exists('url_format_slashes'))
 }
 
 /**
+ * format_uri
+ */
+if(!function_exists('format_uri'))
+{
+    function format_uri(...$args)
+    {
+        $uri = [];
+
+        // Remove empty strings/nulls and restore indices to prevent errors
+        $args = array_values(array_filter($args));
+        $count = count($args);
+        $prefix = "";
+        $suffix = "";
+
+        // If the last arg has a trailing slash, we add it back later
+        if($count > 0)
+        {
+            if(preg_match("/^https?:\/\//", $args[0], $matches))
+            {
+                // Store prefix for later use
+                $prefix = $matches[0];
+        
+                // Remove prefix from fragment
+                $args[0] = substr($args[0], strlen($prefix));
+            }
+            else if(str_starts_with($args[0], "/"))
+            {
+                $prefix = "/";
+            }
+            
+            if(str_ends_with($args[$count-1], "/"))
+            {
+                $suffix = "/";
+            }
+        }
+
+        // Build uri by exploding every arg
+        foreach($args as $arg)
+            if(is_string($arg))
+                $uri = array_merge($uri, explode("/", $arg));
+
+        // Put it back together
+        return $prefix . implode("/", array_filter($uri)) . $suffix;
+    }
+}
+
+/**
  * cli_color
  *  Adds color to cli text
  */
