@@ -271,7 +271,8 @@ if(!function_exists("placeholder_restore"))
 
         // Replace placeholders
         foreach($matches[1] as $placeholderIndex)
-            $content = str_replace("{{$placeholderIndex}}", $placeholders[(int) $placeholderIndex], $content);
+            if(array_key_exists((int) $placeholderIndex, $placeholders))
+                $content = str_replace("{{$placeholderIndex}}", $placeholders[(int) $placeholderIndex], $content);
 
         // Return content
         return $content;
@@ -284,7 +285,7 @@ if(!function_exists("placeholder_restore"))
  */
 if(!function_exists("placeholder_replace"))
 {
-    function placeholder_replace(string $open, string $close, string &$content, int $startIndex = 0, bool $multiByteSafe = false)
+    function placeholder_replace(string $open, string $close, string &$content, int &$startIndex = 0, bool $multiByteSafe = false)
     {
         // Create temp content
         $tempContent = $content;
