@@ -18,6 +18,8 @@ final class StrMustStartEndWithTest extends TestCase
 
     public function testStrMustStartEndWithInputEqualsDelimiter() 
     {
-        $this->assertEquals("//", str_must_start_end_with("/", "/"));
+        // A single delimiter satisfies both start and end, e.g. a root path prefix
+        $this->assertEquals("/", str_must_start_end_with("/", "/"));
+        $this->assertEquals("/", str_must_start_end_with("", "/"));
     }
 }

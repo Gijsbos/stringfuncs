@@ -531,7 +531,7 @@ if(!function_exists('str_must_start_end_with'))
 {
     function str_must_start_end_with(string $input, string $start, ?string $end = null)
     {
-        return wrap($input, $start, $end ?? $start);
+        return str_must_start_with(str_must_end_with($input, $end ?? $start), $start);
     }
 }
 
