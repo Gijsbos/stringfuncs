@@ -122,4 +122,48 @@ final class ExplodeEnclosedTest extends TestCase
         );
         $this->assertEquals($expectedResult, $result);
     }
+
+    public function testExplodeEnclosedMultiByteSafeIndexAsStartPos()
+    {
+        $string = "é(b)é(d)";
+        $result = explode_enclosed("(", ")", $string, 0, true, false, true);
+        $expectedResult = array(
+            1 => "b",
+            5 => "d"
+        );
+        $this->assertEquals($expectedResult, $result);
+    }
+
+    public function testExplodeEnclosedMultiByteSafeOffset()
+    {
+        $string = "é(b)é(d)";
+        $result = explode_enclosed("(", ")", $string, 3, true, false, true);
+        $expectedResult = array(
+            5 => "d"
+        );
+        $this->assertEquals($expectedResult, $result);
+    }
+
+    public function testExplodeEnclosedOffset()
+    {
+        $string = "(a) (b)";
+        $result = explode_enclosed("(", ")", $string, 1);
+        $expectedResult = array(
+            "b"
+        );
+        $this->assertEquals($expectedResult, $result);
+    }
+
+    public function testExplodeEnclosedManyMatches()
+    {
+        $string = str_repeat("(a) ", 100000);
+        $result = explode_enclosed("(", ")", $string);
+        $this->assertCount(100000, $result);
+    }
+
+    public function testExplodeEnclosedEmptyDelimiter()
+    {
+        $this->expectException(\ValueError::class);
+        explode_enclosed("", ")", "(a)");
+    }
 }

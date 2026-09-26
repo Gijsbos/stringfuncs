@@ -16,4 +16,10 @@ final class EvenTest extends TestCase
         $result = even(1);
         $this->assertFalse($result);
     }
+
+    public function testEvenNegative() 
+    {
+        $this->assertTrue(even(-2));
+        $this->assertFalse(even(-3));
+    }
 }

@@ -77,4 +77,53 @@ EOD;
 EOD;
         $this->assertEquals($expectedResult, $result);
     }
+
+    public function testReplaceEnclosedQuotesMarkerTextIsPreserved()
+    {
+        $string = '"a \" b" 0x5C0x22';
+        $result = \replace_enclosed_quotes($string, "x", "y");
+        $this->assertEquals($string, $result);
+    }
+
+    public function testReplaceEnclosedQuotesSearchDoesNotCorruptEscapes()
+    {
+        $string = '"a \" x"';
+        $result = \replace_enclosed_quotes($string, "x", "X");
+        $this->assertEquals('"a \" X"', $result);
+    }
+
+    public function testReplaceEnclosedQuotesMultiByteContent()
+    {
+        $string = '"éé" "a"';
+        $result = \replace_enclosed_quotes($string, "a", "b", true);
+        $this->assertEquals('"éé" "b"', $result);
+    }
+
+    public function testReplaceEnclosedQuotesUnclosedQuoteIsSkipped()
+    {
+        $string = "it's \"a\" day";
+        $result = \replace_enclosed_quotes($string, "a", "the");
+        $this->assertEquals("it's \"the\" day", $result);
+    }
+
+    public function testReplaceEnclosedQuotesEscapedBackslashBeforeQuote()
+    {
+        $string = "'a\\\\' a 'a'";
+        $result = \replace_enclosed_quotes($string, "a", "b");
+        $this->assertEquals("'b\\\\' a 'b'", $result);
+    }
+
+    public function testReplaceEnclosedQuotesTrailingBackslash()
+    {
+        $string = "'a' \\";
+        $result = \replace_enclosed_quotes($string, "a", "b");
+        $this->assertEquals("'b' \\", $result);
+    }
+
+    public function testReplaceEnclosedQuotesNoQuotes()
+    {
+        $string = "no quotes here";
+        $result = \replace_enclosed_quotes($string, "no", "yes");
+        $this->assertEquals($string, $result);
+    }
 }

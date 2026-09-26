@@ -28,4 +28,10 @@ final class UrlFormatSlashesTest extends TestCase
         $expectedResult = "www.example.com";
         $this->assertEquals($expectedResult, $result);
     }
+
+    public function testUrlFormatSlashesEmpty() 
+    {
+        $this->assertEquals("", url_format_slashes("", false, false));
+        $this->assertEquals("//", url_format_slashes("", true, true));
+    }
 }

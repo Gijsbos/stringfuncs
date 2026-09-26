@@ -1,72 +1,111 @@
 <?php
 
 /**
+ * enclosed_ranges
+ *  Returns the byte ranges [start, end) of balanced open/close pairs, start is the position of open, end is the position after close.
+ *  Byte based searching is safe for UTF-8 input because a valid UTF-8 needle can never match inside another character.
+ */
+if(!function_exists('enclosed_ranges'))
+{
+    function enclosed_ranges(string $open, string $close, string $string, int $offset = 0) : array
+    {
+        // Get open and close length
+        $openLength = strlen($open);
+        $closeLength = strlen($close);
+
+        // Collect ranges
+        $ranges = [];
+
+        // Iterate over open positions
+        while(($openPos = strpos($string, $open, $offset)) !== false)
+        {
+            // Balance is counted per searched segment so every byte is only counted once
+            $searchPos = $openPos + $openLength;
+            $segmentStart = $openPos;
+            $balance = 0;
+
+            // Do while balance is not found
+            do
+            {
+                // Get close pos
+                $closePos = strpos($string, $close, $searchPos);
+
+                // Unbalanced, stop searching
+                if($closePos === false)
+                    return $ranges;
+
+                // Increment closePos to include close delimiter
+                $closePos += $closeLength;
+
+                // Update balance with the new segment
+                $balance += substr_count($string, $open, $segmentStart, $closePos - $segmentStart) - substr_count($string, $close, $segmentStart, $closePos - $segmentStart);
+
+                // Set next segment
+                $searchPos = $segmentStart = $closePos;
+            }
+            while($balance !== 0);
+
+            // Add range
+            $ranges[] = [$openPos, $closePos];
+
+            // Continue after close
+            $offset = $closePos;
+        }
+
+        // Return result
+        return $ranges;
+    }
+}
+
+/**
  * explode_enclosed
  */
 if(!function_exists('explode_enclosed'))
 {
     function explode_enclosed(string $open, string $close, string $string, int $offset = 0, bool $startPosAsIndex = false, bool $includeOpenClose = false, bool $multiByteSafe = false)
     {
-        // Set functions
-        $strpos = $multiByteSafe ? 'mb_strpos' : 'strpos';
-        $substr = $multiByteSafe ? 'mb_substr' : 'substr';
-        $strlen = $multiByteSafe ? 'mb_strlen' : 'strlen';
-
         // Get open and close length
-        $openLength = $strlen($open);
-        $closeLength = $strlen($close);
+        $openLength = strlen($open);
+        $closeLength = strlen($close);
 
-        // Get open pos
-        $openPos = $strpos($string, $open, $offset);
+        // Convert character offset to byte offset
+        if($multiByteSafe && $offset !== 0)
+            $offset = strlen(mb_substr($string, 0, $offset));
 
-        // Check open pos
-        if($openPos === false)
-            return [];
+        // Track byte/character positions to convert indexes in a single pass
+        $bytePos = 0;
+        $charPos = 0;
 
-        // Increment openPos
-        $searchPos = $openPos + $openLength;
-
-        // Do while balance is not found
-        do
+        // Iterate over ranges
+        $result = [];
+        foreach(enclosed_ranges($open, $close, $string, $offset) as [$start, $end])
         {
-            // Get close pos
-            $closePos = $strpos($string, $close, $searchPos);
-            
-            // Check close pos
-            if($closePos === false)
-                return [];
-            
-            // Increment closePos to include close delimiter
-            $closePos += $closeLength;
-            
-            // Get content 
-            $content = $substr($string, $openPos, $closePos - $openPos);
+            // Get content
+            $content = $includeOpenClose ? substr($string, $start, $end - $start) : substr($string, $start + $openLength, $end - $start - $openLength - $closeLength);
 
-            // Set searchPos
-            $searchPos = $closePos;
-        }
-        while((substr_count($content, $open) - substr_count($content, $close)) !== 0);
+            // Add without index
+            if(!$startPosAsIndex)
+            {
+                $result[] = $content;
+                continue;
+            }
 
-        // Return as is
-        if($includeOpenClose)
-            $finalContent = $content;
+            // Determine index
+            if($multiByteSafe)
+            {
+                $charPos += mb_strlen(substr($string, $bytePos, $start - $bytePos));
+                $bytePos = $start;
+                $index = $includeOpenClose ? $charPos - mb_strlen($open) : $charPos;
+            }
+            else
+                $index = $includeOpenClose ? $start - $openLength : $start;
 
-        // Extract content wrapped in open/close
-        else
-        {
-            $finalContent = $substr($content, $openLength, $strlen($content) - $openLength - $closeLength);
+            // Add result
+            $result[$index] = $content;
         }
 
         // Return result
-        if($startPosAsIndex)
-        {
-            $index = $includeOpenClose ? $openPos - $strlen($open) : $openPos;
-
-            // Set array
-            return array_replace(array($index => $finalContent), explode_enclosed($open, $close, $string, $searchPos, $startPosAsIndex, $includeOpenClose));
-        }
-        else
-            return array_merge([$finalContent], explode_enclosed($open, $close, $string, $searchPos, $startPosAsIndex, $includeOpenClose));
+        return $result;
     }
 }
 
@@ -77,40 +116,47 @@ if(!function_exists('replace_enclosed_function'))
 {
     function replace_enclosed_function(string $open, string $close, string $string, callable $function, bool $includeOpenClose = false, bool $multiByteSafe = false) : string
     {
-        // Set function
-        $strlen = $multiByteSafe ? 'mb_strlen' : 'strlen';
+        // Get open and close length
+        $openLength = strlen($open);
+        $closeLength = strlen($close);
 
-        // Get open length size
-        $openLength = $strlen($open);    
-
-        // Explode
-        $explode = explode_enclosed($open, $close, $string, 0, true, $includeOpenClose, $multiByteSafe);
-
-        // Check count
-        if(!count($explode))
-            return $string;
-
-        // Iterate over results
-        $offsetDelta = 0;
-        foreach($explode as $pos => $match)
+        // Build result in one pass
+        $result = "";
+        $resultChars = 0;
+        $copiedPos = 0;
+        foreach(enclosed_ranges($open, $close, $string) as [$start, $end])
         {
-            // Extract details
-            $matchLength = $strlen($match);
-            $offset = $pos + $offsetDelta;
-            $stringLength = $strlen($string);
+            // Determine match range
+            $matchStart = $includeOpenClose ? $start : $start + $openLength;
+            $matchEnd = $includeOpenClose ? $end : $end - $closeLength;
 
-            // Create replacements
-            $replacement = $function($match, $offset);
-            
-            // Perform replace
-            $string = \substr_replace($string, $replacement, $offset + $openLength, $matchLength);
+            // Copy leading fragment up to match
+            $leading = substr($string, $copiedPos, $matchStart - $copiedPos);
+            $result .= $leading;
 
-            // Add to delta
-            $offsetDelta += ($strlen($string) - $stringLength);
+            // Offset passed to function is the match position in the result minus the open length (kept for backwards compatibility)
+            if($multiByteSafe)
+            {
+                $resultChars += mb_strlen($leading);
+                $offset = $resultChars - mb_strlen($open);
+            }
+            else
+                $offset = strlen($result) - $openLength;
+
+            // Add replacement
+            $replacement = (string) $function(substr($string, $matchStart, $matchEnd - $matchStart), $offset);
+            $result .= $replacement;
+
+            // Track characters of added content
+            if($multiByteSafe)
+                $resultChars += mb_strlen($replacement);
+
+            // Set copied pos, close delimiter is copied with next fragment
+            $copiedPos = $matchEnd;
         }
 
         // Return result
-        return $string;
+        return $result . substr($string, $copiedPos);
     }
 }
 
@@ -138,84 +184,58 @@ if(!function_exists('replace_enclosed_quotes'))
 {
     function replace_enclosed_quotes(string $string, string $search, string $replace, bool $multiByteSafe = false) : string
     {
-        // Set offset in string
-        $offset = 0;
+        // Quotes and backslashes are single byte ASCII, so byte scanning is UTF-8 safe; $multiByteSafe is kept for backwards compatibility
+        $length = strlen($string);
+        $result = "";
+        $copiedPos = 0;
+        $pos = 0;
 
-        // Set functions
-        $strpos = $multiByteSafe ? 'mb_strpos' : 'strpos';
-        $substr = $multiByteSafe ? 'mb_substr' : 'substr';
-        $strlen = $multiByteSafe ? 'mb_strlen' : 'strlen';
+        // Quote chars that have no unescaped closing quote after the current position
+        $unclosed = [];
 
-        // Escape escaped quotes with UTF-8 encoding
-        $string = preg_replace("/(?<!\\\)\\\[\"]/", "0x5C0x22", $string);
-        $string = preg_replace("/(?<!\\\)\\\[\']/", "0x5C0x27", $string);
-        $string = preg_replace("/(?<!\\\)\\\[\`]/", "0x5C0x60", $string);
-
-        // Replace
-        do
+        // Scan for backslashes and quotes
+        while($pos < $length && ($pos += strcspn($string, "\\\"'`", $pos)) < $length)
         {
-            // Set start and end of quotes
-            $start = $strlen($string);
-            $end = $strlen($string);
+            $char = $string[$pos];
 
-            // Get double quote starting pos
-            $startDQuote = $strpos($string, '"', $offset);
-            $endDQuote = $startDQuote === false ? false : $strpos($string, '"', $startDQuote + 1);
-
-            // Check
-            if($startDQuote !== false && $endDQuote !== false)
+            // Skip escaped char
+            if($char === "\\")
             {
-                $start = $startDQuote;
-                $end = $endDQuote;
-            }
-            
-            // Get single quote starting pos
-            $startSQuote = $strpos($string, "'", $offset);
-            $endSQuote = $startSQuote === false ? false : $strpos($string, "'", $startSQuote + 1);
-
-            // Check
-            if($startSQuote !== false && $endSQuote !== false && $startSQuote < $start)
-            {
-                $start = $startSQuote;
-                $end = $endSQuote;
+                $pos += 2;
+                continue;
             }
 
-            // Get single quote starting pos
-            $startGQuote = $strpos($string, "`", $offset);
-            $endGQuote = $startGQuote === false ? false : $strpos($string, "`", $startGQuote + 1);
-
-            // Check
-            if($startGQuote !== false && $endGQuote !== false && $startGQuote < $start)
+            // Find closing quote, skipping escaped quotes
+            $end = isset($unclosed[$char]) ? false : $pos;
+            while($end !== false && ($end = strpos($string, $char, $end + 1)) !== false)
             {
-                $start = $startGQuote;
-                $end = $endGQuote;
+                // Count preceding backslashes, an odd number means the quote is escaped
+                $backslashes = 0;
+                while($string[$end - $backslashes - 1] === "\\")
+                    $backslashes++;
+
+                if($backslashes % 2 === 0)
+                    break;
             }
 
-            // Check if start has been set
-            if($start === null)
-                return str_replace("0x5C0x22", '\"', str_replace("0x5C0x27", "\'", str_replace("0x5C0x60", "\`", $string)));
+            // Unclosed quote is treated as a regular char
+            if($end === false)
+            {
+                $unclosed[$char] = true;
+                $pos++;
+                continue;
+            }
 
-            // Increment start to avoid including the delimiter
-            $start += 1;
+            // Replace content between quotes
+            $result .= substr($string, $copiedPos, $pos + 1 - $copiedPos) . str_replace($search, $replace, substr($string, $pos + 1, $end - $pos - 1));
 
-            // Get current string length
-            $currentLength = $strlen($string);
-
-            // Replace
-            $replacement = str_replace($search, $replace, $substr($string, $start, $end-$start));
-
-            // Replace in string
-            $string = substr_replace($string, $replacement, $start, $end - $start);
-
-            // Get new string length
-            $newStringLength = $strlen($string);
-
-            // Set offset by using end with delta
-            $offset = $end + ($newStringLength - $currentLength) + 1;
-        } while($offset < $strlen($string));
+            // Continue at closing quote
+            $pos = $copiedPos = $end;
+            $pos++;
+        }
 
         // Return
-        return str_replace("0x5C0x22", '\"', str_replace("0x5C0x27", "\'", str_replace("0x5C0x60", "\`", $string)));
+        return $result . substr($string, $copiedPos);
     }
 }
 
@@ -230,7 +250,7 @@ if(!function_exists('replace_enclosed'))
     {
         return replace_enclosed_function($open, $close, $string, function($match) use ($search, $replace) {
             return str_replace($search, $replace, $match);
-        }, $multiByteSafe);
+        }, false, $multiByteSafe);
     }
 }
 
@@ -287,55 +307,37 @@ if(!function_exists("placeholder_replace"))
 {
     function placeholder_replace(string $open, string $close, string &$content, int &$startIndex = 0, bool $multiByteSafe = false)
     {
-        // Create temp content
-        $tempContent = $content;
+        // Byte ranges are UTF-8 safe, $multiByteSafe is kept for backwards compatibility
+        $openLength = strlen($open);
+        $closeLength = strlen($close);
 
-        // Explode parentheses, replace inner contents with placeholders
-        $explode = \explode_enclosed($open, $close, $tempContent, 0, true, $multiByteSafe);
-
-        // Set functions
-        $substr = $multiByteSafe ? 'mb_substr' : 'substr';
-        $strlen = $multiByteSafe ? 'mb_strlen' : 'strlen';
-
-        // Correction
+        // Replace inner contents of enclosed parts with placeholders
         $resultArray = array();
-        $correction = 0;
-
-        // Iterate over results
-        foreach($explode as $pos => $result)
+        $newContent = "";
+        $copiedPos = 0;
+        foreach(enclosed_ranges($open, $close, $content) as [$start, $end])
         {
-            // Increase pos
-            $pos += 1;
-            
-            // Determine position, correction accounts for pos shifts due to placeholde replacements
-            $pos = $pos + $correction;
+            // Get inner content range
+            $innerStart = $start + $openLength;
+            $innerEnd = $end - $closeLength;
 
-            // Get leading fragment
-            $start = $substr($tempContent, 0, $pos);
-
-            // Get trailing fragment
-            $end = $substr($tempContent, $pos + $strlen($result));
-
-            // Create placeholder
-            $placeholder = "{{$startIndex}}";
-
-            // Calculate difference
-            $correction += $strlen($placeholder) - $strlen($result);
-
-            // Set new content
-            $tempContent = $start.$placeholder.$end;
+            // Add leading fragment and placeholder
+            $newContent .= substr($content, $copiedPos, $innerStart - $copiedPos) . "{{$startIndex}}";
 
             // Add result
-            $resultArray[$startIndex] = $result;
+            $resultArray[$startIndex] = substr($content, $innerStart, $innerEnd - $innerStart);
+
+            // Set copied pos, close delimiter is copied with next fragment
+            $copiedPos = $innerEnd;
 
             // Increment
             $startIndex++;
         }
 
-        // Set content to temp content
-        $content = $tempContent;
+        // Set content
+        $content = $newContent . substr($content, $copiedPos);
 
-        // Return 
+        // Return
         return $resultArray;
     }
 }
@@ -347,7 +349,16 @@ if(!function_exists("typecast"))
 {
     function typecast($input)
     {
-        return is_numeric($input) ? (((float) ((int) $input) === (float) $input) ? (int) $input : (float) $input) : $input;
+        if(!is_numeric($input))
+            return $input;
+
+        // Exact integers, range checked so values beyond PHP_INT_MAX are not clamped
+        if(($int = filter_var($input, FILTER_VALIDATE_INT)) !== false)
+            return $int;
+
+        // Integral floats within int range (e.g. "1.0", "1e3") become int
+        $float = (float) $input;
+        return (floor($float) === $float && $float >= PHP_INT_MIN && $float < PHP_INT_MAX) ? (int) $float : $float;
     }
 }
 
@@ -378,7 +389,8 @@ if(!function_exists('wrap'))
         if(!str_starts_with($input, $start))
             $input = "$start$input";
 
-        if(!str_ends_with($input, $end))
+        // Length check prevents start and end overlapping, e.g. wrapping '"' in quotes
+        if(!str_ends_with($input, $end) || strlen($input) < strlen($start) + strlen($end))
             $input = "$input$end";
 
         return $input;
@@ -392,7 +404,7 @@ if(!function_exists("odd"))
 {
     function odd(int $input)
     {
-        return $input%2 == 1;
+        return $input % 2 !== 0;
     }
 }
 
@@ -428,7 +440,7 @@ if(!function_exists('unwrap_quotes'))
     function unwrap_quotes(string $input) : string
     {
         $input = trim($input);
-        return substr($input, 1, strlen($input) - 2);
+        return is_wrapped_in_quotes($input) ? substr($input, 1, -1) : $input;
     }
 }
 
@@ -519,7 +531,7 @@ if(!function_exists('str_must_start_end_with'))
 {
     function str_must_start_end_with(string $input, string $start, ?string $end = null)
     {
-        return str_must_start_with(str_must_end_with($input, $end ?? $start), $start);
+        return wrap($input, $start, $end ?? $start);
     }
 }
 
@@ -567,11 +579,11 @@ if(!function_exists('url_strip_slashes'))
 {
     function url_strip_slashes(string $url, bool $front = false, bool $back = false) : string
     {
-        if($front)
-            $url = $url[0] == "/" ? substr($url, 1) : $url;
+        if($front && str_starts_with($url, "/"))
+            $url = substr($url, 1);
 
-        if($back)
-            $url = strlen($url) > 0 && $url[strlen($url) - 1] == "/" ? substr($url, 0, strlen($url) - 1) : $url;
+        if($back && str_ends_with($url, "/"))
+            $url = substr($url, 0, -1);
         
         return $url;
     }
@@ -588,11 +600,11 @@ if(!function_exists('url_add_slashes'))
 {
     function url_add_slashes(string $url, bool $front = false, bool $back = false) : string
     {
-        if($front)
-            $url = $url[0] !== "/" ? "/$url" : $url;
+        if($front && !str_starts_with($url, "/"))
+            $url = "/$url";
 
-        if($back)
-            $url = $url[strlen($url) - 1] !== "/" ? "$url/" : $url;
+        if($back && !str_ends_with($url, "/"))
+            $url = "$url/";
         
         return $url;
     }
@@ -647,8 +659,8 @@ if(!function_exists('format_uri'))
     {
         $uri = [];
 
-        // Remove empty strings/nulls and restore indices to prevent errors
-        $args = array_values(array_filter($args));
+        // Remove empty strings/nulls and restore indices to prevent errors, "0" and scalars are kept
+        $args = array_values(array_map('strval', array_filter($args, fn($arg) => (is_string($arg) || is_int($arg) || is_float($arg)) && $arg !== "")));
         $count = count($args);
         $prefix = "";
         $suffix = "";
@@ -677,11 +689,10 @@ if(!function_exists('format_uri'))
 
         // Build uri by exploding every arg
         foreach($args as $arg)
-            if(is_string($arg))
-                $uri = array_merge($uri, explode("/", $arg));
+            array_push($uri, ...explode("/", $arg));
 
         // Put it back together
-        return $prefix . implode("/", array_filter($uri)) . $suffix;
+        return $prefix . implode("/", array_filter($uri, fn($segment) => $segment !== "")) . $suffix;
     }
 }
 
@@ -711,6 +722,7 @@ if(!function_exists("cli_color"))
             case 'light_yellow': $color = "\033[1;33m"; break;
             case 'light_gray': $color = "\033[0;37m"; break;
             case 'white': $color = "\033[1;37m"; break;
+            default: $color = "";
         }
         if($background !== null)
         {
@@ -750,20 +762,16 @@ if(!function_exists("cli_color_padded"))
         $width = $width <= $minWidth ? $minWidth : $width;
     
         // Recalculate padding
-        $padding = ceil(($width - $textLength) / 2);
-        
+        $padding = (int) ceil(($width - $textLength) / 2);
+
         // Print left padding
-        $result = "";
-        for($i = 0; $i < $padding; $i++) $result .= " ";
-        print(cli_color($result, $color, $background));
-    
+        print(cli_color(str_repeat(" ", $padding), $color, $background));
+
         // Print text
         print(cli_color($text, $color, $background));
-    
+
         // Print right padding
-        $result = "";
-        for($i = 0; $i < ($width - $padding - $textLength); $i++) $result .= " ";
-        print(cli_color($result, $color, $background));
+        print(cli_color(str_repeat(" ", $width - $padding - $textLength), $color, $background));
     
         // Print newline
         print("\n");

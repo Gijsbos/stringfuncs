@@ -20,4 +20,15 @@ final class UrlAddSlashesTest extends TestCase
         $expectedResult = "www.example.com";
         $this->assertEquals($expectedResult, $result);
     }
+
+    public function testUrlAddSlashesEmpty() 
+    {
+        $this->assertEquals("/", url_add_slashes("", true, false));
+        $this->assertEquals("/", url_add_slashes("", false, true));
+    }
+
+    public function testUrlAddSlashesExisting() 
+    {
+        $this->assertEquals("/a/", url_add_slashes("/a/", true, true));
+    }
 }

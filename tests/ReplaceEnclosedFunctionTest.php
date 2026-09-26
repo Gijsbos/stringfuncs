@@ -46,4 +46,44 @@ final class ReplaceEnclosedFunctionTest extends TestCase
         $expectedResult = "enclose {{here was a value}} as a result";
         $this->assertEquals($expectedResult, $result);
     }
+
+    public function testReplaceEnclosedFunctionOffset()
+    {
+        $string = "ab (x) (y)";
+        $offsets = [];
+        $result = \replace_enclosed_function("(", ")", $string, function($match, $offset) use (&$offsets)
+        {
+            $offsets[] = $offset;
+            return "$match$match";
+        });
+        $this->assertEquals("ab (xx) (yy)", $result);
+        $this->assertEquals([3, 8], $offsets);
+    }
+
+    public function testReplaceEnclosedFunctionMultiByteSafe()
+    {
+        $string = "éé(a) (a)";
+        $offsets = [];
+        $result = \replace_enclosed_function("(", ")", $string, function($match, $offset) use (&$offsets)
+        {
+            $offsets[] = $offset;
+            return "ü";
+        }, false, true);
+        $this->assertEquals("éé(ü) (ü)", $result);
+        $this->assertEquals([2, 6], $offsets);
+    }
+
+    public function testReplaceEnclosedFunctionNoMatch()
+    {
+        $string = "nothing enclosed";
+        $result = \replace_enclosed_function("(", ")", $string, fn($match) => "x");
+        $this->assertEquals($string, $result);
+    }
+
+    public function testReplaceEnclosedFunctionManyMatches()
+    {
+        $string = str_repeat("(a) ", 100000);
+        $result = \replace_enclosed_function("(", ")", $string, fn($match) => "bb");
+        $this->assertEquals(str_repeat("(bb) ", 100000), $result);
+    }
 }

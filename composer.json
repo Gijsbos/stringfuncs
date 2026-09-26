@@ -9,9 +9,12 @@
     "authors": [
         {
             "name": "Gijs and contributors",
-            "homepage": "https://github.com/gijsbos/yamlspeed/graphs/contributors"
+            "homepage": "https://github.com/gijsbos/stringfuncs/graphs/contributors"
         }
     ],
+    "require": {
+        "php": ">=8.0"
+    },
     "require-dev": {
         "phpunit/phpunit": "^5.7 || ^9.0"
     },

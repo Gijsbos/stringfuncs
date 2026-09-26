@@ -16,4 +16,10 @@ final class OddTest extends TestCase
         $result = odd(2);
         $this->assertFalse($result);
     }
+
+    public function testOddNegative() 
+    {
+        $this->assertTrue(odd(-3));
+        $this->assertFalse(odd(-2));
+    }
 }

@@ -28,4 +28,15 @@ final class UnwrapQuotesTest extends TestCase
         $expectedResult = "hi";
         $this->assertEquals($expectedResult, $result);
     }
+
+    public function testUnwrapQuotesNotQuoted() 
+    {
+        $this->assertEquals("hello", unwrap_quotes("hello"));
+        $this->assertEquals("'hi\"", unwrap_quotes("'hi\""));
+    }
+
+    public function testUnwrapQuotesTrims() 
+    {
+        $this->assertEquals("hi", unwrap_quotes("  'hi' "));
+    }
 }

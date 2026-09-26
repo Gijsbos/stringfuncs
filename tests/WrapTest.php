@@ -20,4 +20,10 @@ final class WrapTest extends TestCase
         $expectedResult = "{example}";
         $this->assertEquals($expectedResult, $result);
     }
+
+    public function testWrapInputEqualsDelimiter() 
+    {
+        $this->assertEquals('""', wrap('"', '"', '"'));
+        $this->assertEquals('""', wrap('""', '"', '"'));
+    }
 }
